@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Table Editor</title>
+  <style>
+    :root {
+      --bg: #ffffff;
+      --panel: #ffffff;
+      --line: #c3c5cc;
+      --text: #191a1f;
+      --muted: #4f525b;
+      --btn: #f2f3f6;
+      --btn-border: #b5b8c2;
+      --btn-hover: #e5e8ef;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      padding: 14px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1440px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 70% 30%;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    button {
+      border: 1px solid var(--btn-border);
+      border-radius: 4px;
+      background: var(--btn);
+      color: var(--text);
+      padding: 6px 10px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.83rem;
+    }
+
+    button:hover {
+      background: var(--btn-hover);
+    }
+
+    #copyBtn,
+    #pasteBtn {
+      border: 0;
+      border-radius: 999px;
+      padding: 4px 12px;
+      background: #e3e6ec;
+      font-size: 0.8rem;
+      line-height: 1.2;
+      transition: background-color 140ms ease;
+    }
+
+    #copyBtn:hover,
+    #pasteBtn:hover {
+      background: #d8dde6;
+    }
+
+    .editor-pane {
+      background: var(--panel);
+      min-height: 330px;
+      padding: 0 16px 16px;
+    }
+
+    .markdown-pane {
+      border: 0;
+      background: #fafbfc;
+      border-radius: 16px;
+      padding: 16px;
+      min-height: 330px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .output-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .output-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .markdown-scroll {
+      flex: 1;
+      min-height: 0;
+      max-height: calc(100vh - 64px);
+      overflow: auto;
+      padding: 8px 0;
+      background: transparent;
+    }
+
+    .table-wrap {
+      overflow: auto;
+    }
+
+    .table-editor {
+      position: relative;
+      padding-left: 24px;
+    }
+
+    .hover-remove {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 18px;
+      height: 18px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: #b1b7c2;
+      color: #242832;
+      font-size: 0.8rem;
+      font-weight: 700;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 3;
+      opacity: 0;
+      transform: scale(0.88);
+      pointer-events: none;
+      transition: background-color 140ms ease, opacity 140ms ease, transform 140ms ease;
+    }
+
+    .hover-remove.is-visible {
+      opacity: 1;
+      transform: scale(1);
+      pointer-events: auto;
+    }
+
+    .hover-remove:hover {
+      background: #a2aab7;
+    }
+
+    table {
+      width: 100%;
+      margin: 0;
+      border-collapse: collapse;
+      min-width: 520px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 0;
+      background: #ffffff;
+    }
+
+    tbody tr:nth-child(even) td {
+      background: #f7f8fa;
+    }
+
+    .header-cell {
+      display: flex;
+    }
+
+    .header-cell .cell {
+      flex: 1;
+    }
+
+    textarea.cell {
+      width: 100%;
+      border: 0;
+      border-radius: 0;
+      padding: 8px 10px 6px;
+      font: inherit;
+      line-height: 1.25;
+      color: inherit;
+      background: transparent;
+      resize: none;
+      overflow: hidden;
+      white-space: pre-wrap;
+      word-break: break-word;
+      min-height: 34px;
+    }
+
+    textarea.cell:focus {
+      outline: none;
+      background: transparent;
+    }
+
+    .remove-glyph {
+      display: block;
+      font-size: 0.9rem;
+      color: #ffffff;
+      line-height: 1;
+    }
+
+    .output-title {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    pre {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: visible;
+      font-size: 1rem;
+      line-height: 1.25;
+      color: #202228;
+      font-family: "Courier New", Courier, monospace;
+    }
+
+    @media (max-width: 940px) {
+      .app {
+        grid-template-columns: 1fr;
+      }
+
+      .markdown-scroll {
+        max-height: 42vh;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 10px;
+      }
+
+      .table-editor {
+        padding-left: 20px;
+      }
+
+      table {
+        min-width: 430px;
+      }
+
+      pre {
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="editor-pane">
+      <div class="table-editor">
+        <button id="colHoverRemoveBtn" class="hover-remove" type="button" aria-label="Remove column" title="Remove column"><span class="remove-glyph">×</span></button>
+        <button id="rowHoverRemoveBtn" class="hover-remove" type="button" aria-label="Remove row" title="Remove row"><span class="remove-glyph">×</span></button>
+        <div class="table-wrap">
+          <table id="editorTable"></table>
+        </div>
+      </div>
+    </section>
+    <aside class="markdown-pane">
+      <div class="output-header">
+        <div class="output-title">Markdown</div>
+        <div class="output-actions">
+          <button id="copyBtn" type="button">Copy</button>
+          <button id="pasteBtn" type="button">Paste</button>
+        </div>
+      </div>
+      <div class="markdown-scroll">
+        <pre id="markdownOutput"></pre>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const initialMarkdown = `
+| Product | Price | In Stock |
+| --- | --- | --- |
+| Keyboard | 79 | Yes |
+| Mouse | 39 | No |
+| Monitor | 249 | Yes |
+`.trim();
+
+    const state = parseMarkdownTable(initialMarkdown);
+    const tableEl = document.getElementById("editorTable");
+    const tableWrapEl = document.querySelector(".table-wrap");
+    const tableEditorEl = document.querySelector(".table-editor");
+    const colHoverRemoveBtn = document.getElementById("colHoverRemoveBtn");
+    const rowHoverRemoveBtn = document.getElementById("rowHoverRemoveBtn");
+    const copyBtn = document.getElementById("copyBtn");
+    const pasteBtn = document.getElementById("pasteBtn");
+    const outputEl = document.getElementById("markdownOutput");
+    let hoveredColIndex = null;
+    let hoveredRowIndex = null;
+
+    function extractCells(line) {
+      const raw = line.trim();
+      const delimiter = "|";
+      const split = raw.split(delimiter).map((item) => item.trim());
+      if (split[0] === "") split.shift();
+      if (split[split.length - 1] === "") split.pop();
+      return split;
+    }
+
+    function isSeparatorRow(cells) {
+      return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
+    }
+
+    function parseMarkdownTable(markdown) {
+      const lines = markdown
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+
+      const parsedRows = lines.map(extractCells).filter((row) => row.length > 0);
+
+      if (parsedRows.length === 0) {
+        return {
+          headers: ["Column 1", "Column 2"],
+          rows: [["", ""]]
+        };
+      }
+
+      let headers = [];
+      let dataRows = [];
+
+      if (parsedRows.length >= 2 && isSeparatorRow(parsedRows[1])) {
+        headers = parsedRows[0];
+        dataRows = parsedRows.slice(2);
+      } else {
+        headers = parsedRows[0];
+        dataRows = parsedRows.slice(1);
+      }
+
+      if (headers.length === 0) headers = ["Column 1"];
+      if (dataRows.length === 0) dataRows = [Array(headers.length).fill("")];
+
+      const colCount = headers.length;
+      const normalizedRows = dataRows.map((row) => {
+        const cloned = row.slice(0, colCount);
+        while (cloned.length < colCount) cloned.push("");
+        return cloned;
+      });
+
+      return { headers, rows: normalizedRows };
+    }
+
+    function toMarkdown() {
+      const headerLine = "| " + state.headers.join(" | ") + " |";
+      const sepLine = "| " + state.headers.map(() => "---").join(" | ") + " |";
+      const rowLines = state.rows.map((row) => "| " + row.join(" | ") + " |");
+      return [headerLine, sepLine, ...rowLines].join("\n");
+    }
+
+    function applyMarkdown(markdown) {
+      const parsed = parseMarkdownTable(markdown);
+      state.headers = parsed.headers.slice();
+      state.rows = parsed.rows.map((row) => row.slice());
+      hideColRemoveButton();
+      hideRowRemoveButton();
+      renderTable();
+    }
+
+    function updateOutput() {
+      outputEl.textContent = toMarkdown();
+    }
+
+    function getDisplayRows() {
+      const displayRows = state.rows.map((row) => {
+        const cloned = row.slice(0, state.headers.length);
+        while (cloned.length < state.headers.length) cloned.push("");
+        cloned.push("");
+        return cloned;
+      });
+      displayRows.push(Array(state.headers.length + 1).fill(""));
+      return displayRows;
+    }
+
+    function getNextColumnName() {
+      return "Column " + (state.headers.length + 1);
+    }
+
+    function addColumn(headerValue) {
+      const nextHeader = headerValue !== undefined ? headerValue : getNextColumnName();
+      state.headers.push(nextHeader);
+      state.rows.forEach((row) => row.push(""));
+    }
+
+    function addRow() {
+      state.rows.push(Array(state.headers.length).fill(""));
+    }
+
+    function getDataRowIndexFromClientY(clientY) {
+      const rowEls = tableEl.querySelectorAll("tbody tr");
+      const maxRow = Math.min(state.rows.length, rowEls.length);
+      for (let i = 0; i < maxRow; i += 1) {
+        const rect = rowEls[i].getBoundingClientRect();
+        if (clientY >= rect.top && clientY <= rect.bottom) {
+          return i;
+        }
+      }
+      return null;
+    }
+
+    function autoSizeCell(field) {
+      const minHeight = parseFloat(window.getComputedStyle(field).minHeight) || 0;
+      field.style.height = "auto";
+      field.style.height = `${Math.max(minHeight, Math.ceil(field.scrollHeight))}px`;
+    }
+
+    function focusInput(type, rowIndex, colIndex) {
+      const selector = type === "header"
+        ? `.cell[data-type="header"][data-col="${colIndex}"]`
+        : `.cell[data-type="cell"][data-row="${rowIndex}"][data-col="${colIndex}"]`;
+      const input = tableEl.querySelector(selector);
+      if (!(input instanceof HTMLTextAreaElement)) return;
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }
+
+    function hideRowRemoveButton() {
+      hoveredRowIndex = null;
+      rowHoverRemoveBtn.classList.remove("is-visible");
+    }
+
+    function hideColRemoveButton() {
+      hoveredColIndex = null;
+      colHoverRemoveBtn.classList.remove("is-visible");
+    }
+
+    function updateColRemoveButtonPosition(colIndex) {
+      if (colIndex < 0 || colIndex >= state.headers.length) {
+        hideColRemoveButton();
+        return;
+      }
+
+      const colEl = tableEl.querySelector(`thead th[data-col="${colIndex}"]`);
+      if (!(colEl instanceof HTMLTableCellElement)) {
+        hideColRemoveButton();
+        return;
+      }
+
+      const editorRect = tableEditorEl.getBoundingClientRect();
+      const colRect = colEl.getBoundingClientRect();
+      const buttonWidth = colHoverRemoveBtn.offsetWidth || 18;
+      const buttonHeight = colHoverRemoveBtn.offsetHeight || 18;
+      const buttonLeft = colRect.right - editorRect.left - buttonWidth - 7;
+      const buttonTop = colRect.top - editorRect.top + (colRect.height - buttonHeight) / 2;
+
+      hoveredColIndex = colIndex;
+      colHoverRemoveBtn.style.left = `${Math.max(0, buttonLeft)}px`;
+      colHoverRemoveBtn.style.top = `${Math.max(0, buttonTop)}px`;
+      colHoverRemoveBtn.classList.add("is-visible");
+    }
+
+    function updateRowRemoveButtonPosition(rowIndex) {
+      if (rowIndex < 0 || rowIndex >= state.rows.length) {
+        hideRowRemoveButton();
+        return;
+      }
+
+      const rowEl = tableEl.querySelector(`tbody tr[data-row="${rowIndex}"]`);
+      if (!(rowEl instanceof HTMLTableRowElement)) {
+        hideRowRemoveButton();
+        return;
+      }
+
+      const editorRect = tableEditorEl.getBoundingClientRect();
+      const rowRect = rowEl.getBoundingClientRect();
+      const buttonHeight = rowHoverRemoveBtn.offsetHeight || 18;
+      const buttonTop = rowRect.top - editorRect.top + (rowRect.height - buttonHeight) / 2;
+
+      hoveredRowIndex = rowIndex;
+      rowHoverRemoveBtn.style.top = `${Math.max(0, buttonTop)}px`;
+      rowHoverRemoveBtn.classList.add("is-visible");
+    }
+
+    function renderTable(focusTarget) {
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      const displayHeaders = [...state.headers, ""];
+      const displayRows = getDisplayRows();
+
+      displayHeaders.forEach((header, colIndex) => {
+        const th = document.createElement("th");
+        th.dataset.col = String(colIndex);
+        const wrap = document.createElement("div");
+        wrap.className = "header-cell";
+
+        const input = document.createElement("textarea");
+        input.className = "cell";
+        input.rows = 1;
+        input.value = header;
+        input.dataset.type = "header";
+        input.dataset.col = String(colIndex);
+        autoSizeCell(input);
+
+        wrap.appendChild(input);
+        th.appendChild(wrap);
+        headRow.appendChild(th);
+      });
+
+      thead.appendChild(headRow);
+
+      const tbody = document.createElement("tbody");
+      displayRows.forEach((row, rowIndex) => {
+        const tr = document.createElement("tr");
+        tr.dataset.row = String(rowIndex);
+        row.forEach((cell, colIndex) => {
+          const td = document.createElement("td");
+          const input = document.createElement("textarea");
+          input.className = "cell";
+          input.rows = 1;
+          input.value = cell;
+          input.dataset.type = "cell";
+          input.dataset.row = String(rowIndex);
+          input.dataset.col = String(colIndex);
+          autoSizeCell(input);
+          td.appendChild(input);
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+
+      tableEl.replaceChildren(thead, tbody);
+      updateOutput();
+      if (hoveredColIndex !== null) {
+        updateColRemoveButtonPosition(hoveredColIndex);
+      } else {
+        hideColRemoveButton();
+      }
+      if (hoveredRowIndex !== null) {
+        updateRowRemoveButtonPosition(hoveredRowIndex);
+      } else {
+        hideRowRemoveButton();
+      }
+      if (focusTarget) {
+        focusInput(focusTarget.type, focusTarget.row, focusTarget.col);
+      }
+    }
+
+    tableEl.addEventListener("input", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLTextAreaElement)) return;
+      autoSizeCell(target);
+
+      const type = target.dataset.type;
+      const col = Number(target.dataset.col);
+
+      if (type === "header") {
+        if (col < state.headers.length) {
+          state.headers[col] = target.value;
+          updateOutput();
+          return;
+        }
+
+        if (target.value.trim() !== "") {
+          addColumn(target.value);
+          renderTable({ type: "header", row: 0, col });
+        } else {
+          updateOutput();
+        }
+        return;
+      }
+
+      if (type === "cell") {
+        const row = Number(target.dataset.row);
+        const isTrailingRow = row === state.rows.length;
+        const isTrailingCol = col === state.headers.length;
+        const hasValue = target.value.trim() !== "";
+        let rowAdded = false;
+        let colAdded = false;
+
+        if (isTrailingRow && hasValue) {
+          addRow();
+          rowAdded = true;
+        }
+
+        if (isTrailingCol && hasValue) {
+          addColumn();
+          colAdded = true;
+        }
+
+        if (row < state.rows.length && col < state.headers.length) {
+          state.rows[row][col] = target.value;
+        }
+
+        if (rowAdded || colAdded) {
+          renderTable({ type: "cell", row, col });
+          return;
+        }
+
+        updateOutput();
+      }
+    });
+
+    tableEditorEl.addEventListener("mousemove", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      if (target.closest("#colHoverRemoveBtn")) {
+        if (hoveredColIndex !== null) {
+          updateColRemoveButtonPosition(hoveredColIndex);
+        }
+      } else {
+        const colEl = target.closest("thead th");
+        if (colEl instanceof HTMLTableCellElement) {
+          const colIndex = Number(colEl.dataset.col);
+          if (colIndex < state.headers.length) {
+            if (hoveredColIndex !== colIndex) {
+              updateColRemoveButtonPosition(colIndex);
+            }
+          } else {
+            hideColRemoveButton();
+          }
+        } else {
+          hideColRemoveButton();
+        }
+      }
+
+      if (target.closest("#rowHoverRemoveBtn")) {
+        if (hoveredRowIndex !== null) {
+          updateRowRemoveButtonPosition(hoveredRowIndex);
+        }
+        return;
+      }
+
+      const rowEl = target.closest("tbody tr");
+      let rowIndex = null;
+      if (rowEl instanceof HTMLTableRowElement) {
+        const fromRow = Number(rowEl.dataset.row);
+        if (fromRow < state.rows.length) {
+          rowIndex = fromRow;
+        }
+      }
+
+      if (rowIndex === null) {
+        rowIndex = getDataRowIndexFromClientY(event.clientY);
+      }
+
+      if (rowIndex === null) {
+        hideRowRemoveButton();
+      } else if (hoveredRowIndex !== rowIndex) {
+        updateRowRemoveButtonPosition(rowIndex);
+      }
+    });
+
+    tableEditorEl.addEventListener("mouseleave", () => {
+      hideColRemoveButton();
+      hideRowRemoveButton();
+    });
+
+    tableWrapEl.addEventListener("scroll", () => {
+      if (hoveredColIndex !== null) {
+        updateColRemoveButtonPosition(hoveredColIndex);
+      }
+      if (hoveredRowIndex !== null) {
+        updateRowRemoveButtonPosition(hoveredRowIndex);
+      }
+    });
+
+    colHoverRemoveBtn.addEventListener("click", () => {
+      if (hoveredColIndex === null) return;
+      if (state.headers.length === 1) return;
+
+      state.headers.splice(hoveredColIndex, 1);
+      state.rows.forEach((row) => row.splice(hoveredColIndex, 1));
+      hideColRemoveButton();
+      renderTable();
+    });
+
+    rowHoverRemoveBtn.addEventListener("click", () => {
+      if (hoveredRowIndex === null) return;
+      if (state.rows.length === 1) {
+        return;
+      }
+
+      state.rows.splice(hoveredRowIndex, 1);
+      hideRowRemoveButton();
+      renderTable();
+    });
+
+    async function copyText(text) {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch (error) {
+      }
+
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+
+      let copied = false;
+      try {
+        copied = document.execCommand("copy");
+      } catch (error) {
+      }
+
+      textarea.remove();
+      return copied;
+    }
+
+    async function readClipboardText() {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          return await navigator.clipboard.readText();
+        }
+      } catch (error) {
+      }
+
+      return "";
+    }
+
+    copyBtn.addEventListener("click", async () => {
+      const markdown = toMarkdown();
+      const copied = await copyText(markdown);
+      if (!copied) {
+        window.prompt("Copy markdown table:", markdown);
+      }
+    });
+
+    pasteBtn.addEventListener("click", async () => {
+      let markdown = await readClipboardText();
+
+      if (!markdown || markdown.trim() === "") {
+        const manual = window.prompt("Paste markdown table here (Ctrl/Cmd+V):", "");
+        if (manual === null || manual.trim() === "") return;
+        markdown = manual;
+      }
+
+      applyMarkdown(markdown);
+    });
+
+    renderTable();
+  </script>
+</body>
+</html>
