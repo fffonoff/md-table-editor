@@ -311,6 +311,14 @@
       return split;
     }
 
+    function parseCellText(value) {
+      return value.replace(/<br\s*\/?>/gi, "\n");
+    }
+
+    function toMarkdownCellText(value) {
+      return value.replace(/\r?\n/g, "<br>");
+    }
+
     function isSeparatorRow(cells) {
       return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
     }
@@ -341,6 +349,9 @@
         dataRows = parsedRows.slice(1);
       }
 
+      headers = headers.map(parseCellText);
+      dataRows = dataRows.map((row) => row.map(parseCellText));
+
       if (headers.length === 0) headers = ["Column 1"];
       if (dataRows.length === 0) dataRows = [Array(headers.length).fill("")];
 
@@ -355,9 +366,9 @@
     }
 
     function toMarkdown() {
-      const headerLine = "| " + state.headers.join(" | ") + " |";
+      const headerLine = "| " + state.headers.map(toMarkdownCellText).join(" | ") + " |";
       const sepLine = "| " + state.headers.map(() => "---").join(" | ") + " |";
-      const rowLines = state.rows.map((row) => "| " + row.join(" | ") + " |");
+      const rowLines = state.rows.map((row) => "| " + row.map(toMarkdownCellText).join(" | ") + " |");
       return [headerLine, sepLine, ...rowLines].join("\n");
     }
 
