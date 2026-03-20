@@ -417,6 +417,12 @@
       field.style.height = `${Math.max(minHeight, Math.ceil(field.scrollHeight))}px`;
     }
 
+    function autoSizeRenderedCells() {
+      tableEl.querySelectorAll("textarea.cell").forEach((field) => {
+        autoSizeCell(field);
+      });
+    }
+
     function focusInput(type, rowIndex, colIndex) {
       const selector = type === "header"
         ? `.cell[data-type="header"][data-col="${colIndex}"]`
@@ -502,7 +508,6 @@
         input.value = header;
         input.dataset.type = "header";
         input.dataset.col = String(colIndex);
-        autoSizeCell(input);
 
         wrap.appendChild(input);
         th.appendChild(wrap);
@@ -524,7 +529,6 @@
           input.dataset.type = "cell";
           input.dataset.row = String(rowIndex);
           input.dataset.col = String(colIndex);
-          autoSizeCell(input);
           td.appendChild(input);
           tr.appendChild(td);
         });
@@ -532,6 +536,7 @@
       });
 
       tableEl.replaceChildren(thead, tbody);
+      autoSizeRenderedCells();
       updateOutput();
       if (hoveredColIndex !== null) {
         updateColRemoveButtonPosition(hoveredColIndex);
@@ -666,6 +671,10 @@
       if (hoveredRowIndex !== null) {
         updateRowRemoveButtonPosition(hoveredRowIndex);
       }
+    });
+
+    window.addEventListener("resize", () => {
+      autoSizeRenderedCells();
     });
 
     colHoverRemoveBtn.addEventListener("click", () => {
